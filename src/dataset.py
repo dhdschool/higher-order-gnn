@@ -16,23 +16,42 @@ class Reader:
     
     
     def __init__(self, dir: os.PathLike):
-        """Data object for the Epinions or the Ciao dataset
+        """Data object for the Epinions or the Ciao dataset. Writes data to file in numpy format if not present.
 
         Args:
             dir (os.PathLike): The path of the directory containg the categories.txt, rating.mat, and trustnetwork.mat files
         """
-        rating = mat4py.loadmat(str(dir / 'rating.mat'))
-        self.rating = np.array(rating['rating'])
+        self.dir = dir
         
-        trustnetwork = mat4py.loadmat(str(dir / 'trustnetwork.mat'))
-        self.trustnetwork = np.array(trustnetwork['trustnetwork'])
+        if not os.path.exists(dir / 'item_edges.npy'):
+            rating = mat4py.loadmat(str(dir / 'rating.mat'))
+            self.item_edges = np.array(rating['rating'])
+            np.save(dir / 'item_edges.npy', self.item_edges)
+        else:
+            self.item_edges = np.load(dir / 'item_edges.npy')
+
+        if not os.path.exists(dir / 'person_edges.npy'):
+            trustnetwork = mat4py.loadmat(str(dir / 'trustnetwork.mat'))
+            self.person_edges = np.array(trustnetwork['trustnetwork'])
+            np.save(dir / 'person_edges.npy', self.person_edges)
+        else:
+            self.person_edges = np.load(dir / 'person_edges.npy')
         
+        if not os.path.exists(dir / 'person_vertices.npy'):
+            self.person_vertices = np.unique(np.concatenate([self.person_edges[:, 0], self.person_edges[:, 1], self.item_edges[:, 0]], axis=0))
+            np.save(dir / 'person_vertices.npy', self.person_vertices)
+        else:
+            self.person_vertices = np.load(dir / 'person_vertices.npy')
+            
+        if not os.path.exists(dir / 'item_vertices.npy'):
+            self.item_vertices = np.unique(self.item_edges[:, 1])
+            np.save(dir / 'item_vertices.npy', self.item_vertices)
+        else:
+            self.item_vertices = np.load(dir / 'item_vertices.npy')        
+
         categories = self._read_categories(dir / 'categories.txt')
         self.categories = pd.DataFrame.from_dict(categories, orient='index').rename(columns={0:'Category'})
-                
-        self.person_vertices = np.unique(np.concatenate([self.trustnetwork[:, 0], self.trustnetwork[:, 1], self.rating[:, 0]], axis=0))
-        self.items_vertices = np.unique(self.rating[:, 1])
-
+        
     def _read_categories(self, fp: os.PathLike):
         """Internal method for reading the categories.txt file as a dictionary
 
@@ -55,17 +74,31 @@ class TnnDataset(torch_geometric.data.Dataset):
     def __init__(self, reader: Reader, max_two_cell_size=3):
         super().__init__()
         
+        self.reader: Reader = reader
         self.complex = tnx.CombinatorialComplex()
         for vertice in reader.person_vertices:
             self.complex.add_cell(vertice, rank=0)
         
-        for edge in reader.trustnetwork:
+        for edge in reader.person_edges:
             self.complex.add_cell(edge, rank=1)
 
-        cliques = ig.Graph(edges = reader.trustnetwork).cliques(min=3, max=max_two_cell_size)
-        for cell in cliques:
-            self.complex.add_cell(cell, rank=2)
-            
+        self.cliques = self._load_cliques(max_two_cell_size)
+        for arr in self.cliques:
+            for cell in arr:
+                self.complex.add_cell(cell, rank=2)
+                
+    def _load_cliques(self, max_size: int):
+        cliques = []
+        for size in range(3, max_size + 1):
+            if not os.path.exists(self.reader.dir / f'person_cliques_{size}.npy'):
+                clique = ig.Graph(edges = self.reader.person_edges).cliques(min=size, max=size)
+                clique = np.vstack(clique)
+                np.save(self.reader.dir / f'person_cliques_{size}.npy', clique)
+            else:
+                clique = np.load(self.reader.dir / f'person_cliques_{size}.npy')
+            cliques.append(clique)
+        return cliques
+        
             
 def _testing(dataset_dir: os.PathLike):
     """Testing suite for this file
@@ -76,24 +109,25 @@ def _testing(dataset_dir: os.PathLike):
     
     reader_start_time = time()
     reader = Reader(dataset_dir)
-    categories = np.unique(reader.rating[:, 2])
-    rating_vals = np.unique(reader.rating[:, 3])
+    categories = np.unique(reader.item_edges[:, 2])
+    rating_vals = np.unique(reader.item_edges[:, 3])
             
     print(f"Categories: {reader.categories['Category'].to_list()}")
     print(f"Category index numbers: {categories}")
     print(f"Rating values in dataset: {rating_vals}")
     print()
-    print(f"Number of item vertices present: {len(reader.items_vertices)}")
-    print(f"Number of item-people edges present: {len(reader.rating)}")
+    print(f"Number of item vertices present: {len(reader.item_vertices)}")
+    print(f"Number of item-people edges present: {len(reader.item_edges)}")
     print(f"Number of person vertices: {len(reader.person_vertices)}")
-    print(f"Number of person-person edges present: {len(reader.trustnetwork)}")
-    print()
+    print(f"Number of person-person edges present: {len(reader.person_edges)}")
     
     reader_end_time = time()
     print(f"Time to load reader: {round(reader_end_time - reader_start_time, 4)}s")
+    print()
     
     method1_start_time = time()
     dataset = TnnDataset(reader)
+    print(f"Total cliques of size 3: {sum(map(lambda x: len(x), dataset.cliques))}")
     method1_end_time = time()
     print(f"Time to load three rank complex: {round(method1_end_time - method1_start_time, 4)}s")
     
