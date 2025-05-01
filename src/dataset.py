@@ -76,12 +76,16 @@ class TnnDataset(torch_geometric.data.Dataset):
         
         self.reader: Reader = reader
         self.complex = tnx.CombinatorialComplex()
+        
+        # 0-cells (people)
         for vertice in reader.person_vertices:
             self.complex.add_cell(vertice, rank=0)
         
+        # 1-cells (connections)
         for edge in reader.person_edges:
             self.complex.add_cell(edge, rank=1)
 
+        # 2-cells (cliques)
         self.cliques = self._load_cliques(max_two_cell_size)
         for arr in self.cliques:
             for cell in arr:
@@ -92,6 +96,7 @@ class TnnDataset(torch_geometric.data.Dataset):
         for size in range(3, max_size + 1):
             if not os.path.exists(self.reader.dir / f'person_cliques_{size}.npy'):
                 clique = ig.Graph(edges = self.reader.person_edges).cliques(min=size, max=size)
+                if len(clique) == 0: return cliques
                 clique = np.vstack(clique)
                 np.save(self.reader.dir / f'person_cliques_{size}.npy', clique)
             else:
@@ -126,8 +131,10 @@ def _testing(dataset_dir: os.PathLike):
     print()
     
     method1_start_time = time()
-    dataset = TnnDataset(reader)
-    print(f"Total cliques of size 3: {sum(map(lambda x: len(x), dataset.cliques))}")
+    dataset = TnnDataset(reader, max_two_cell_size=14)
+    print(f"Total number of cliques: {sum(map(lambda x: len(x), dataset.cliques))}")
+    for idx, clique in enumerate(dataset.cliques):
+        print(f"Number of cliques of size {idx + 3}: {len(clique)}")
     method1_end_time = time()
     print(f"Time to load three rank complex: {round(method1_end_time - method1_start_time, 4)}s")
     
