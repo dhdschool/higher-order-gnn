@@ -29,47 +29,47 @@ class Reader:
         self.person_vertices = self._load_person_vertices()
         self.item_vertices = self._load_item_vertices()
 
-        categories = self._read_categories(dir / 'categories.txt')
+        categories = self._read_categories(self.dir / 'categories.txt')
         self.categories = pd.DataFrame.from_dict(categories, orient='index').rename(columns={0:'Category'})
     
     def _load_item_edges(self):
-        if not os.path.exists(dir / 'item_edges.npy'):
-            rating = mat4py.loadmat(str(dir / 'rating.mat'))
+        if not os.path.exists(self.dir / 'item_edges.npy'):
+            rating = mat4py.loadmat(str(self.dir / 'rating.mat'))
             item_edges = np.array(rating['rating'])
-            np.save(dir / 'item_edges.npy', item_edges)
+            np.save(self.dir / 'item_edges.npy', item_edges)
         else:
-            item_edges = np.load(dir / 'item_edges.npy')
+            item_edges = np.load(self.dir / 'item_edges.npy')
         return item_edges
     
     def _load_person_edges(self):
-        if not os.path.exists(dir / 'person_edges.npy'):
-            trustnetwork = mat4py.loadmat(str(dir / 'trustnetwork.mat'))
+        if not os.path.exists(self.dir / 'person_edges.npy'):
+            trustnetwork = mat4py.loadmat(str(self.dir / 'trustnetwork.mat'))
             person_edges = np.array(trustnetwork['trustnetwork'])
-            np.save(dir / 'person_edges.npy', person_edges)
+            np.save(self.dir / 'person_edges.npy', person_edges)
         else:
-            person_edges = np.load(dir / 'person_edges.npy')
+            person_edges = np.load(self.dir / 'person_edges.npy')
         return person_edges
     
     def _load_person_vertices(self, person_edges=None, item_edges=None):
         if person_edges is None: person_edges = self.person_edges
         if item_edges is None: item_edges = self.item_edges
         
-        if not os.path.exists(dir / 'person_vertices.npy'):
+        if not os.path.exists(self.dir / 'person_vertices.npy'):
             person_vertices = np.unique(np.concatenate([person_edges[:, 0], person_edges[:, 1], item_edges[:, 0]], axis=0))
-            np.save(dir / 'person_vertices.npy', person_vertices)
+            np.save(self.dir / 'person_vertices.npy', person_vertices)
         else:
-            person_vertices = np.load(dir / 'person_vertices.npy')
+            person_vertices = np.load(self.dir / 'person_vertices.npy')
             
         return person_vertices
 
     def _load_item_vertices(self, item_edges=None):
         if item_edges is None: item_edges = self.item_edges
         
-        if not os.path.exists(dir / 'item_vertices.npy'):
+        if not os.path.exists(self.dir / 'item_vertices.npy'):
             item_vertices = np.unique(item_edges[:, 1])
-            np.save(dir / 'item_vertices.npy', item_vertices)
+            np.save(self.dir / 'item_vertices.npy', item_vertices)
         else:
-            item_vertices = np.load(dir / 'item_vertices.npy')  
+            item_vertices = np.load(self.dir / 'item_vertices.npy')  
     
         return item_vertices
         
@@ -171,8 +171,8 @@ def _testing(dataset_dir: os.PathLike):
     
     method1_start_time = time()
     dataset = TnnDataset(reader, max_two_cell_size=3)
-    print(f"Total number of cliques: {sum(map(lambda x: len(x), dataset.cliques))}")
-    for idx, clique in enumerate(dataset.cliques):
+    print(f"Total number of cliques: {sum(map(lambda x: len(x), dataset.x2))}")
+    for idx, clique in enumerate(dataset.x2):
         print(f"Number of cliques of size {idx + 3}: {len(clique)}")
     method1_end_time = time()
     print(f"Time to load dataset: {round(method1_end_time - method1_start_time, 4)}s")
