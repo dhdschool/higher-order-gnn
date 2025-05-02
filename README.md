@@ -8,4 +8,4 @@ We propose multiple potential architectures to port the graph-based methods of t
 - 1-cell: Person-Person edges
 - 2-cell: Person cliques of size $i$, $\forall i \in \{3, 4, ..., n\}\ \exists n \geq 3$
 
-Where a clique is defined as a set of vertices that have mutual edges between all vertices
+Where a clique is defined as a set of vertices that have mutual edges between all vertices.
