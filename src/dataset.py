@@ -9,7 +9,7 @@ from time import time
 import igraph as ig
 
 EPINION_DIR = Path('data/epinions') # Epinions dataset directory path
-CIAO_DIR = Path('data/ciao')        # Ciao dataset direcotyr path
+CIAO_DIR = Path('data/ciao')        # Ciao dataset directory path
 
 
 class Reader:
@@ -35,7 +35,7 @@ class Reader:
     def _load_item_edges(self):
         if not os.path.exists(self.dir / 'item_edges.npy'):
             rating = mat4py.loadmat(str(self.dir / 'rating.mat'))
-            item_edges = np.array(rating['rating'])
+            item_edges = np.sort(np.array(rating['rating']), axis=1)
             np.save(self.dir / 'item_edges.npy', item_edges)
         else:
             item_edges = np.load(self.dir / 'item_edges.npy')
@@ -44,15 +44,17 @@ class Reader:
     def _load_person_edges(self):
         if not os.path.exists(self.dir / 'person_edges.npy'):
             trustnetwork = mat4py.loadmat(str(self.dir / 'trustnetwork.mat'))
-            person_edges = np.array(trustnetwork['trustnetwork'])
+            person_edges = np.sort(np.array(trustnetwork['trustnetwork']), axis=1)
             np.save(self.dir / 'person_edges.npy', person_edges)
         else:
             person_edges = np.load(self.dir / 'person_edges.npy')
         return person_edges
     
     def _load_person_vertices(self, person_edges=None, item_edges=None):
-        if person_edges is None: person_edges = self.person_edges
-        if item_edges is None: item_edges = self.item_edges
+        if person_edges is None: 
+            person_edges = self.person_edges
+        if item_edges is None: 
+            item_edges = self.item_edges
         
         if not os.path.exists(self.dir / 'person_vertices.npy'):
             person_vertices = np.unique(np.concatenate([person_edges[:, 0], person_edges[:, 1], item_edges[:, 0]], axis=0))
@@ -92,7 +94,7 @@ class Reader:
 
 
 class TnnDataset(torch_geometric.data.Dataset):
-    def __init__(self, reader: Reader, max_two_cell_size=3):
+    def __init__(self, reader: Reader, max_two_cell_size: int=3):
         super().__init__()
         
         self.reader: Reader = reader
@@ -118,7 +120,7 @@ class TnnDataset(torch_geometric.data.Dataset):
             if not os.path.exists(self.reader.dir / f'person_cliques_{size}.npy'):
                 clique = ig.Graph(edges=self.reader.person_edges).cliques(min=size, max=size)
                 if len(clique) == 0: return cliques, size
-                clique = np.vstack(clique)
+                clique = np.sort(np.vstack(clique), axis=1)
                 np.save(self.reader.dir / f'person_cliques_{size}.npy', clique)
             else:
                 clique = np.load(self.reader.dir / f'person_cliques_{size}.npy')
@@ -177,6 +179,9 @@ def _testing(dataset_dir: os.PathLike):
     method1_end_time = time()
     print(f"Time to load dataset: {round(method1_end_time - method1_start_time, 4)}s")
     
+    print(dataset.x0)
+    print(dataset.x1)
+    print(dataset.x2[0])
     
 if __name__ == '__main__':
     _testing(CIAO_DIR)
