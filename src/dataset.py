@@ -21,7 +21,7 @@ class Reader:
         Args:
             dir (os.PathLike): The path of the directory containg the categories.txt, rating.mat, and trustnetwork.mat files
         """
-        self.dir = dir
+        self.dir = Path(dir)
         
         self.item_edges = self._load_item_edges()
         self.person_edges = self._load_person_edges()
