@@ -64,6 +64,21 @@ def construct_idx_map(x0: np.ndarray, x1: np.ndarray):
             index_map[key] = index_map.get(key, []) + [x1_idx]
     return index_map
 
+def construct_comb_arr(x1, k):
+    entries = x1.shape[0]
+    n = x1.shape[1]
+    n_choose_k = comb(n, k)
+    m = entries * n_choose_k
+    
+    combination_arr = np.empty((m, k))
+    
+    for idx, group in enumerate(x1):
+        l_ptr = n_choose_k*idx
+        r_ptr = (n_choose_k + 1) * idx
+        combination_arr[l_ptr:r_ptr, :] = combinations(group, k) 
+        
+    return combination_arr
+
 def incidence_matrix(x0, x1):
     n = len(x0)
     m = len(x1)
@@ -85,6 +100,13 @@ def incidence_matrix(x0, x1):
     matrix = torch.sparse_coo_tensor(indices, values, (n,m))    
     return matrix
 
+# def adjacency_matrix(x0, x1):
+#     index_map = construct_idx_map(x0, x1)
+#     x0_hash = {tuple(i) for i in x0}
+    
+#     for subgroup in index_map:
+        
+
 if __name__ == '__main__':
     from dataset import TnnDataset, Reader
     reader = Reader('data/ciao')
@@ -93,7 +115,6 @@ if __name__ == '__main__':
     x1 = data.x2[0]
     
     start_time = time()
-    mat = incidence_matrix(x0, x1)
-    print(mat)
+    print(construct_comb_arr(x1, k=2))
     end_time = time()
     print(end_time - start_time)
