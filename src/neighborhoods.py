@@ -43,6 +43,29 @@ def combinations(x: np.ndarray, k: int, threads=None, depth: int=0, n=None):
         subthread_count = subthreads + subthread_count
     return iterables
 
+# Order preserving non-recursive implementation of combinations, faster than combinations when n choose k is sufficiently small
+@nb.jit
+def combinations_2(x: np.ndarray, k: int):
+    n = len(x)
+    m = comb(n, k)
+    
+    arr = np.empty((m, k), dtype=np.int32)
+    ptrs = np.arange(k)
+    for idx in range(m):
+         arr[idx, :] = x[ptrs]
+         ptrs[-1] += 1
+         passed_check = False
+         while passed_check == False and idx != m-1:
+            for ptr_idx in range(len(ptrs)-1, -1, -1):                                
+                if ptrs[ptr_idx] > n - (k - ptr_idx):
+                    ptrs[ptr_idx-1] = ptrs[ptr_idx-1] + 1
+                    ptrs[ptr_idx:] = np.arange(ptrs[ptr_idx-1]+1, ptrs[ptr_idx-1]+(k-ptr_idx+1))
+                    break
+                if ptr_idx == 0:
+                    passed_check=True
+                
+    return arr
+
 def construct_map(x0: np.ndarray, x1: np.ndarray):
     subgroup_map = {}
     k = x0.shape[1]
@@ -64,6 +87,7 @@ def construct_idx_map(x0: np.ndarray, x1: np.ndarray):
             index_map[key] = index_map.get(key, []) + [x1_idx]
     return index_map
 
+@nb.jit
 def construct_comb_arr(x1, k):
     entries = x1.shape[0]
     n = x1.shape[1]
@@ -73,8 +97,8 @@ def construct_comb_arr(x1, k):
     combination_arr = np.empty((m, k))
     
     for idx, group in enumerate(x1):
-        l_ptr = n_choose_k*idx
-        r_ptr = (n_choose_k + 1) * idx
+        l_ptr = n_choose_k * idx
+        r_ptr = n_choose_k * (idx + 1)
         combination_arr[l_ptr:r_ptr, :] = combinations(group, k) 
         
     return combination_arr
@@ -108,13 +132,15 @@ def incidence_matrix(x0, x1):
         
 
 if __name__ == '__main__':
-    from dataset import TnnDataset, Reader
-    reader = Reader('data/ciao')
-    data = TnnDataset(reader)
-    x0 = data.x1
-    x1 = data.x2[0]
+    # from dataset import TnnDataset, Reader
+    # reader = Reader('data/ciao')
+    # data = TnnDataset(reader)
+    # x0 = data.x1
+    # x1 = data.x2[0]
+    test_arr = np.arange(1, 6)
     
     start_time = time()
-    print(construct_comb_arr(x1, k=2))
+    print(combinations_2(test_arr, 2))
+    print(combinations(test_arr, 2))
     end_time = time()
     print(end_time - start_time)
