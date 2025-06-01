@@ -11,17 +11,41 @@ from time import time
 import torch
 
 fact_list = [math.factorial(i) for i in range(21)]
+
+
 FACT_TABLE = np.array(fact_list, dtype=np.int64)
 
 @nb.jit
 def factorial(n: int):
     if n > 20:
-        raise ValueError("Integer overflow for dtype int64 for factorial > 20")
+        #raise ValueError("Integer overflow for dtype int64 for factorial > 20")
+        return -1
     return FACT_TABLE[n]
-            
+
+@nb.jit
+def partial_factorial(n, denominator):
+    total = 1
+    for i in range(denominator+1, n+1):
+        total *= i
+    return total    
+          
 @nb.jit
 def comb(n: int, k: int):
-    return int(factorial(n) / (factorial(k) * factorial(n-k)))
+    a = factorial(n)
+    b = factorial(k)
+    c = factorial(n-k)
+    
+    if a != -1 and b != -1 and c != -1:
+        return int(factorial(n) / (factorial(k) * factorial(n-k)))
+    else:
+        return comb_2(n, k)
+        
+@nb.jit
+def comb_2(n: int, k: int):
+    if n-k > k:
+        return int(partial_factorial(n, n-k) / factorial(k))
+    else:
+        return int(partial_factorial(n, k) / factorial(n-k))
 
 # Order preserving combinations
 @nb.jit
@@ -153,8 +177,30 @@ def adjacency_matrix(x0, x1):
     indices = [row_indices, column_indices]
     matrix = torch.sparse_coo_tensor(indices, values, (n,n))    
     return matrix
-    
 
+def coadjacency_matrix(x0, x1):
+    m = len(x1)
+    idx_map = construct_idx_map(x0, x1)
+    
+    row_indices = []
+    column_indices = []
+    values = [] 
+    
+    # Group all x0 indices by pairing with x1
+    for key in x0:
+        key = tuple(key)
+        if key in idx_map:
+            x1_idx_list = idx_map[key]
+            pairwise_indices = combinations_2(np.array(x1_idx_list), 2)
+            for row in pairwise_indices:
+                row_indices.append(row[0])
+                column_indices.append(row[1])
+                values.append(1)
+    
+    indices = [row_indices, column_indices]
+    matrix = torch.sparse_coo_tensor(indices, values, (m,m))    
+    return matrix
+    
 if __name__ == '__main__':
     d_start_time = time()
     from dataset import TnnDataset, Reader
@@ -168,6 +214,6 @@ if __name__ == '__main__':
     
     start_time = time()
     
-    print(adjacency_matrix(x0, x1))
+    print(coadjacency_matrix(x0, x1))
     end_time = time()
     print(end_time - start_time)
