@@ -82,10 +82,11 @@ def construct_idx_map(x0: np.ndarray, x1: np.ndarray):
     
     x1_indices = np.arange(len(x1))
     for x, x1_idx in zip(x1, x1_indices):
-        for subgroup in combinations(x, k):
+        for subgroup in combinations_2(x, k):
             key = tuple(subgroup)
             index_map[key] = index_map.get(key, []) + [x1_idx]
     return index_map
+
 
 @nb.jit
 def construct_comb_arr(x1, k):
@@ -124,23 +125,52 @@ def incidence_matrix(x0, x1):
     matrix = torch.sparse_coo_tensor(indices, values, (n,m))    
     return matrix
 
-# def adjacency_matrix(x0, x1):
-#     index_map = construct_idx_map(x0, x1)
-#     x0_hash = {tuple(i) for i in x0}
+def adjacency_matrix(x0, x1):
+    n = len(x0)
     
-#     for subgroup in index_map:
-        
+    idx_map = construct_idx_map(x0, x1)
+    new_map = {}
+    
+    for i in range(len(x0)):
+        key = tuple(x0[i])
+        if key in idx_map:
+            for x1_idx in idx_map[key]:
+                new_map[x1_idx] = new_map.get(x1_idx, []) + [i]
+    
+    row_indices = []
+    column_indices = []
+    values = [] 
+    for keys in new_map.values():
+        pairwise_indices = combinations_2(np.array(keys), 2)
+        for row in pairwise_indices:
+            row_indices.append(row[0])
+            column_indices.append(row[1])
+            values.append(1)
+    
+    indices = [row_indices, column_indices]
+    matrix = torch.sparse_coo_tensor(indices, values, (n,n))    
+    return matrix
+    
 
 if __name__ == '__main__':
-    # from dataset import TnnDataset, Reader
-    # reader = Reader('data/ciao')
-    # data = TnnDataset(reader)
-    # x0 = data.x1
-    # x1 = data.x2[0]
-    test_arr = np.arange(1, 6)
+    d_start_time = time()
+    from dataset import TnnDataset, Reader
+    reader = Reader('data/ciao')
+    data = TnnDataset(reader)
+    x0 = data.x1
+    x1 = data.x2[0]
+    d_end_time = time()
     
+    print(f"Dataset load time is {d_end_time - d_start_time}")
+    #test_arr = np.arange(1, 6)
+    
+    # start_time = time()
+    # print(combinations_2(test_arr, 2))
+    # print(combinations(test_arr, 2))
+    # end_time = time()
+    print(x0[0], x0[71])
     start_time = time()
-    print(combinations_2(test_arr, 2))
-    print(combinations(test_arr, 2))
+    
+    print(adjacency_matrix(x0, x1))
     end_time = time()
     print(end_time - start_time)

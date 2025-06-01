@@ -44,7 +44,7 @@ class Reader:
     def _load_person_edges(self):
         if not os.path.exists(self.dir / 'person_edges.npy'):
             trustnetwork = mat4py.loadmat(str(self.dir / 'trustnetwork.mat'))
-            person_edges = np.sort(np.array(trustnetwork['trustnetwork']), axis=1)
+            person_edges = np.unique(np.sort(np.array(trustnetwork['trustnetwork']), axis=1), axis=0)
             np.save(self.dir / 'person_edges.npy', person_edges)
         else:
             person_edges = np.load(self.dir / 'person_edges.npy')
