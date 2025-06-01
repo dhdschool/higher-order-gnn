@@ -131,6 +131,7 @@ def adjacency_matrix(x0, x1):
     idx_map = construct_idx_map(x0, x1)
     new_map = {}
     
+    # Group all x0 indices by pairing with x1
     for i in range(len(x0)):
         key = tuple(x0[i])
         if key in idx_map:
@@ -140,6 +141,8 @@ def adjacency_matrix(x0, x1):
     row_indices = []
     column_indices = []
     values = [] 
+    
+    # Find all 2 length combinations of adjacent x0 indices and fill in their value on the sparse tensor
     for keys in new_map.values():
         pairwise_indices = combinations_2(np.array(keys), 2)
         for row in pairwise_indices:
@@ -162,13 +165,7 @@ if __name__ == '__main__':
     d_end_time = time()
     
     print(f"Dataset load time is {d_end_time - d_start_time}")
-    #test_arr = np.arange(1, 6)
     
-    # start_time = time()
-    # print(combinations_2(test_arr, 2))
-    # print(combinations(test_arr, 2))
-    # end_time = time()
-    print(x0[0], x0[71])
     start_time = time()
     
     print(adjacency_matrix(x0, x1))
